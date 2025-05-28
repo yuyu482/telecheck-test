@@ -14,8 +14,8 @@ VERSION = "1.2.0"
 
 # アプリケーションのメイン処理
 def run_app():
-# 環境変数の読み込み
-load_dotenv()
+    # 環境変数の読み込み
+    load_dotenv()
 
     try:
         # メインアプリケーションの実行
@@ -46,4 +46,4 @@ load_dotenv()
         """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    run_app()
+    run_app() 

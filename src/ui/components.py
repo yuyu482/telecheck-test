@@ -33,14 +33,15 @@ def render_upload_section():
     st.markdown('<div class="section-container upload-section">', unsafe_allow_html=True)
     st.markdown("### 📁 音声ファイルアップロード")
     
-    uploaded_file = st.file_uploader(
+    uploaded_files = st.file_uploader(
         "mp3ファイルを選択してください（最大25MB）",
         type=['mp3'],
-        help="テレアポの録音データをアップロードしてください"
+        help="テレアポの録音データをアップロードしてください",
+        accept_multiple_files=True
     )
     
     st.markdown('</div>', unsafe_allow_html=True)
-    return uploaded_file
+    return uploaded_files
 
 
 def render_quality_check_section():
@@ -48,34 +49,54 @@ def render_quality_check_section():
     st.markdown('<div class="section-container quality-check-section">', unsafe_allow_html=True)
     st.markdown("### 🎯 品質チェック設定")
     
-    # 担当者選択
-    checker_options = ["担当者A", "担当者B", "担当者C", "担当者D", "その他"]
-    selected_checkers = []
+    # 担当者設定（カンマ区切りのテキスト入力）
+    st.markdown("#### 👥 担当者設定")
     
-    col1, col2, col3 = st.columns(3)
+    # Difyで定義されている担当者リスト（参考表示用）
+    available_checkers = [
+        "野田", "永廣", "猪俣", "渡辺", "工藤", "前川", "田本", "立川", "濱田"
+    ]
+    
+    # 参考として表示
+    st.caption(f"参考：登録済み担当者 - {', '.join(available_checkers)}")
+    
+    # テキスト入力（カンマ区切り）
+    checker_input = st.text_input(
+        "品質チェックを行う担当者名をカンマ区切りで入力してください",
+        value="",
+        help="例：田中, 佐藤, 鈴木（カンマ区切りで複数の担当者を入力できます）"
+    )
+    
+    # カンマ区切りの入力を処理
+    selected_checkers = []
+    if checker_input:
+        # カンマで分割して空白を削除
+        selected_checkers = [name.strip() for name in checker_input.split(',') if name.strip()]
+    
+    # 担当者プレビュー表示
+    col1, col2 = st.columns([3, 1])
     
     with col1:
-        for i, option in enumerate(checker_options[:2]):
-            if st.checkbox(option, key=f"checker_{i}"):
-                selected_checkers.append(option)
+        if selected_checkers:
+            st.markdown("**✅ 入力された担当者:**")
+            # 2列で表示（多数の場合の見やすさを考慮）
+            checker_cols = st.columns(3)
+            for i, checker in enumerate(selected_checkers):
+                with checker_cols[i % 3]:
+                    st.markdown(f"　• {checker}")
+        else:
+            st.info("👆 上記に担当者名をカンマ区切りで入力してください")
     
     with col2:
-        for i, option in enumerate(checker_options[2:4], start=2):
-            if st.checkbox(option, key=f"checker_{i}"):
-                selected_checkers.append(option)
-    
-    with col3:
-        if st.checkbox(checker_options[4], key="checker_4"):
-            other_checker = st.text_input("担当者名を入力", key="other_checker_name")
-            if other_checker:
-                selected_checkers.append(other_checker)
-    
-    # バッチサイズ設定
-    batch_size = st.slider("バッチサイズ", min_value=1, max_value=20, value=10, 
-                          help="一度に処理する件数")
+        if selected_checkers:
+            st.metric("入力担当者数", f"{len(selected_checkers)}名")
+            if len(selected_checkers) > 5:
+                st.warning("担当者数が多いです")
+        else:
+            st.metric("入力担当者数", "0名")
     
     st.markdown('</div>', unsafe_allow_html=True)
-    return selected_checkers, batch_size
+    return selected_checkers
 
 
 def render_result_section(transcript_text=None):

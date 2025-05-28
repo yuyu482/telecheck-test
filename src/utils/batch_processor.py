@@ -27,9 +27,13 @@ def run_quality_check_batch(gc, client, checker_str, progress_bar, status_text, 
         # メトリクス表示
         metrics_containers = _setup_metrics_display(len(target_rows))
         
+        # スプレッドシートを取得
+        spreadsheet = gc.open("テレアポチェックシート")
+        worksheet = spreadsheet.worksheet("Difyテスト")
+        
         # バッチ処理実行
         _process_batch(
-            target_rows, checker_str, client, gc, 
+            target_rows, checker_str, client, worksheet, header_map,
             batch_size, progress_bar, status_text, metrics_containers
         )
         
@@ -38,11 +42,11 @@ def run_quality_check_batch(gc, client, checker_str, progress_bar, status_text, 
 
 
 def _create_header_map(header_row):
-    """ヘッダーマップを作成"""
+    """ヘッダー行からカラムマップを作成"""
     header_map = {}
-    for i, header in enumerate(header_row, start=1):
+    for i, header in enumerate(header_row):
         if header.strip():
-            header_map[header.strip()] = i
+            header_map[header.strip()] = i + 1  # gspreadは1ベース
     return header_map
 
 
@@ -50,41 +54,38 @@ def _initialize_progress_display(progress_bar, status_text, total_rows):
     """進捗表示を初期化"""
     progress_bar.progress(0)
     status_text.markdown(
-        f"<p style='text-align: center; font-weight: 500;'>0/{total_rows} 処理中...</p>", 
+        f"<p style='text-align: center; font-weight: 500;'>🔍 品質チェック開始: {total_rows}件を処理します</p>", 
         unsafe_allow_html=True
     )
 
 
 def _setup_metrics_display(total_rows):
-    """メトリクス表示エリアを設定"""
-    metrics_cols = st.columns(2)
+    """メトリクス表示を設定"""
+    st.markdown("### 📊 処理状況")
+    col1, col2, col3 = st.columns(3)
     
-    with metrics_cols[0]:
-        processed_metric = st.empty()
-        processed_metric.markdown(f"""
+    with col1:
+        processed_container = st.empty()
+    with col2:
+        success_container = st.empty()
+    with col3:
+        total_container = st.empty()
+        total_container.markdown(f"""
         <div class="metric-card">
-          <h3>✅ 処理済み</h3>
-          <p>0/{total_rows}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    with metrics_cols[1]:
-        success_metric = st.empty()
-        success_metric.markdown(f"""
-        <div class="metric-card">
-          <h3>🎯 成功率</h3>
-          <p>0%</p>
+          <h3>📋 総件数</h3>
+          <p>{total_rows}</p>
         </div>
         """, unsafe_allow_html=True)
     
     return {
-        'processed': processed_metric,
-        'success': success_metric
+        'processed': processed_container,
+        'success': success_container,
+        'total': total_container
     }
 
 
-def _process_batch(target_rows, checker_str, client, gc, batch_size, 
-                  progress_bar, status_text, metrics_containers):
+def _process_batch(target_rows, checker_str, client, worksheet, header_map,
+                  batch_size, progress_bar, status_text, metrics_containers):
     """実際のバッチ処理を実行"""
     results_batch = []
     total_processed = 0
@@ -119,7 +120,7 @@ def _process_batch(target_rows, checker_str, client, gc, batch_size,
             # バッチサイズに達した場合、または最後の処理の場合にスプレッドシート更新
             if len(results_batch) >= batch_size or i == len(target_rows) - 1:
                 if results_batch:
-                    _update_spreadsheet_batch(gc, results_batch)
+                    _update_spreadsheet_batch(worksheet, header_map, results_batch)
                     results_batch = []
             
             # 進捗更新
@@ -139,8 +140,8 @@ def _show_current_processing(filename):
     """現在処理中のファイル名を表示"""
     current_file = st.empty()
     current_file.markdown(f"""
-    <div style="text-align: center; padding: 0.5rem; background-color: rgba(40,40,40,0.7); border-radius: 5px; margin: 1rem 0;">
-      <p style="margin: 0; font-weight: 500;">🔍 現在処理中: {filename}</p>
+    <div class="info-box">
+      🔄 処理中: {filename}
     </div>
     """, unsafe_allow_html=True)
     return current_file
@@ -165,7 +166,7 @@ def _update_metrics(metrics_containers, processed, success, total):
     """, unsafe_allow_html=True)
 
 
-def _update_spreadsheet_batch(gc, results_batch):
+def _update_spreadsheet_batch(worksheet, header_map, results_batch):
     """バッチ単位でスプレッドシートを更新"""
     batch_status = st.empty()
     batch_status.markdown("""
@@ -175,8 +176,8 @@ def _update_spreadsheet_batch(gc, results_batch):
     """, unsafe_allow_html=True)
     
     try:
-        spreadsheet = gc.open("テレアポチェックシート")
-        update_quality_check_results(spreadsheet, results_batch)
+        # 正しいパラメータでupdate_quality_check_results関数を呼び出し
+        update_quality_check_results(worksheet, header_map, results_batch)
         time.sleep(1)  # API制限を避けるための待機
         batch_status.empty()
     except Exception as e:

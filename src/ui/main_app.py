@@ -11,7 +11,8 @@ from src.ui.components import (
     render_result_section,
     render_footer,
     show_success_message,
-    show_error_message
+    show_error_message,
+    show_info_message
 )
 from src.api.openai_client import init_openai_client, transcribe_audio
 from src.api.sheets_client import init_google_sheets, write_to_sheets
@@ -63,39 +64,65 @@ def _initialize_api_clients():
 def _handle_transcription_tab(clients):
     """文字起こしタブの処理"""
     # 音声アップロードセクション
-    uploaded_file = render_upload_section()
+    uploaded_files = render_upload_section()
     
     # 処理ボタン
     process_button = st.button("🎤 文字起こし開始", type="primary", use_container_width=True)
     
     # 文字起こし処理
-    if process_button and uploaded_file is not None:
-        with st.spinner("🎤 音声ファイルを文字起こし中..."):
-            try:
-                # 文字起こし処理
-                transcript_text = transcribe_audio(uploaded_file, clients['openai'])
-                
-                if transcript_text:
-                    # 結果表示
-                    render_result_section(transcript_text)
+    if process_button and uploaded_files:
+        # 全ファイルの処理状況を管理
+        total_files = len(uploaded_files)
+        processed_files = 0
+        error_files = 0
+
+        # プログレスバーの初期化
+        overall_progress = st.progress(0.0)
+        
+        for i, uploaded_file in enumerate(uploaded_files):
+            with st.spinner(f"🎤 {uploaded_file.name} を文字起こし中... ({i+1}/{total_files})"):
+                try:
+                    # 文字起こし処理
+                    transcript_text = transcribe_audio(uploaded_file, clients['openai'])
                     
-                    # Google Sheetsに保存
-                    write_to_sheets(clients['sheets'], transcript_text, uploaded_file.name)
-                    show_success_message("文字起こしが完了し、Google Sheetsに保存されました")
-                else:
-                    show_error_message("文字起こしに失敗しました")
-                    
-            except Exception as e:
-                show_error_message(f"処理中にエラーが発生しました: {str(e)}")
-    
-    elif process_button and uploaded_file is None:
+                    if transcript_text:
+                        # 結果表示（個別ファイルごとには表示しないか、限定的にする）
+                        # render_result_section(transcript_text) # 個別表示はコメントアウト
+                        
+                        # Google Sheetsに保存
+                        write_to_sheets(clients['sheets'], transcript_text, uploaded_file.name)
+                        show_success_message(f"{uploaded_file.name} の文字起こしが完了し、Google Sheetsに保存されました")
+                        processed_files += 1
+                    else:
+                        show_error_message(f"{uploaded_file.name} の文字起こしに失敗しました")
+                        error_files += 1
+                        
+                except Exception as e:
+                    show_error_message(f"{uploaded_file.name} の処理中にエラーが発生しました: {str(e)}")
+                    error_files += 1
+            
+            # 全体進捗の更新
+            overall_progress.progress((i + 1) / total_files)
+
+        # 全体処理完了メッセージ
+        if processed_files > 0:
+            show_success_message(f"{processed_files}件のファイル処理が完了しました。")
+        if error_files > 0:
+            show_error_message(f"{error_files}件のファイル処理中にエラーが発生しました。")
+        if processed_files == 0 and error_files == 0:
+            show_info_message("処理対象のファイルがありませんでした。")
+
+    elif process_button and not uploaded_files:
         show_error_message("音声ファイルを選択してください")
 
 
 def _handle_quality_check_tab(clients):
     """品質チェックタブの処理"""
     # 品質チェック設定セクション
-    selected_checkers, batch_size = render_quality_check_section()
+    selected_checkers = render_quality_check_section()
+    
+    # バッチサイズは固定値5で設定
+    batch_size = 5
     
     # 処理設定
     col1, col2 = st.columns(2)

@@ -39,3 +39,6 @@ ENV/
 # OS関連ファイル
 .DS_Store
 Thumbs.db 
+
+# ドキュメント関係
+docs/

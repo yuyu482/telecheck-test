@@ -1,0 +1,5 @@
+# OpenAI API設定
+OPENAI_API_KEY=sk-your-actual-openai-api-key-here
+
+# AssemblyAI API設定（新規追加）
+ASSEMBLYAI_API_KEY=your-actual-assemblyai-api-key-here 

@@ -1,268 +1,227 @@
-## 主な機能
+# 📞 テレアポ文字起こし・品質チェックシステム v2.0
 
-- **音声ファイル処理**: MP3形式の音声ファイルをアップロード（最大25MB）
-- **AI文字起こし**: OpenAI Whisper APIを使用した日本語音声の高精度文字起こし
-- **詳細品質チェック**: Difyと同じ26項目の詳細な品質評価
-- **データ保存**: 品質チェック結果をGoogle Sheetsに自動保存（30列の詳細データ）
-- **ユーザーインターフェース**: Streamlitを使用した直感的なWebインターフェース
+AssemblyAI API による話者分離機能付きの文字起こしシステムです。
+テレアポの録音データを自動的に文字起こしし、話者を分離してテレアポ担当者の発言を特定します。
 
-## システム要件
+## 🌟 主な機能
 
-- Python 3.11+
-- OpenAI API キー
-- Google Cloud Platform サービスアカウント
-- Google Sheets API アクセス権限
+### 🎤 話者分離文字起こし
+- **AssemblyAI API** による高精度な話者分離
+- **自動テレアポ担当者判定** - 発言内容から担当者を自動識別
+- **大容量ファイル対応** - 最大2GB（2,048MB）まで対応
+- **複数ファイル一括処理** - 同時に複数ファイルの処理が可能
 
-## セットアップ
+### 🔍 品質チェック
+- **OpenAI GPT-4o-mini** による文字起こし品質の自動チェック
+- **カスタム担当者設定** - 複数担当者の品質評価に対応
+- **バッチ処理** - 大量データの効率的な処理
 
-### 1. Python環境の準備
+### 📊 データ管理
+- **Google Sheets連携** - 結果の自動保存・管理
+- **話者別集計** - テレアポ担当者の発言のみを抽出
+- **ファイル情報追跡** - サイズ、処理時間等の詳細記録
 
-#### 1.1. 仮想環境の作成
-```bash
-# 1. 仮想環境の作成
-python -m venv venv
+## 🏗️ アーキテクチャ
 
-# 2. 仮想環境のアクティベート
-# Windows
-venv\Scripts\activate
-
-# macOS/Linux
-source venv/bin/activate
+### ファイル構造
+```
+src/
+├── config.py                 # 🔧 アプリケーション設定管理
+├── api/
+│   ├── assemblyai_client.py   # 🎤 AssemblyAI API（文字起こし・話者分離）
+│   ├── openai_client.py       # 🤖 OpenAI API（品質チェック専用）
+│   └── sheets_client.py       # 📊 Google Sheets API
+├── ui/
+│   ├── main_app.py           # 🖥️ メインアプリケーション
+│   ├── components.py         # 🧩 UIコンポーネント
+│   └── styles.py             # 🎨 スタイル定義
+└── utils/
+    ├── speaker_detection.py   # 🔍 テレアポ担当者自動判定
+    ├── quality_check.py       # ✅ 品質チェックロジック
+    └── batch_processor.py     # ⚡ バッチ処理エンジン
 ```
 
-#### 1.2. 依存パッケージのインストール
+### 技術スタック
+- **Frontend**: Streamlit
+- **音声処理**: AssemblyAI API
+- **AI分析**: OpenAI GPT-4o-mini
+- **データ保存**: Google Sheets API
+- **言語**: Python 3.9+
+
+## 🚀 セットアップ
+
+### 1. 環境準備
 ```bash
+# リポジトリクローン
+git clone <repository-url>
+cd telecheck-system
+
+# 仮想環境作成・有効化
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 依存関係インストール
 pip install -r requirements.txt
 ```
 
-### 2. Google Cloud Platform設定
+### 2. API キー設定
 
-#### 2.1. プロジェクトの作成・選択
-
-1. **GCPコンソールにアクセス**
-   - [Google Cloud Console](https://console.cloud.google.com/) にアクセス
-   - Googleアカウントでログイン
-
-2. **新しいプロジェクトを作成**
-   - 上部の「プロジェクトを選択」をクリック
-   - 「新しいプロジェクト」をクリック
-   - プロジェクト名を入力（例：`teleapo-mvp`）
-   - 「作成」をクリック
-
-#### 2.2. 必要なAPIの有効化
-
-⚠️ **重要**: このシステムは Google Sheets API と Google Drive API の **両方** が必要です。
-
-**なぜ Google Drive API が必要なのか？**
-- Google Sheets API: スプレッドシートの読み書きに使用
-- Google Drive API: スプレッドシートファイルへのアクセス権限管理に使用
-- システムが使用するgspreadライブラリは内部的に Google Drive API を使用
-
-1. **Google Sheets API の有効化**
-   - 左サイドメニューから「APIとサービス」→「ライブラリ」
-   - 検索バーで「Google Sheets API」を検索
-   - 「Google Sheets API」をクリック
-   - 「有効にする」ボタンをクリック
-
-2. **Google Drive API の有効化** ⚠️ **必須**
-   - 同じ「ライブラリ」画面で検索バーで「Google Drive API」を検索
-   - 「Google Drive API」をクリック
-   - 「有効にする」ボタンをクリック
-
-3. **有効化の確認**
-   - 「APIとサービス」→「有効なAPI」から以下の2つが表示されることを確認：
-     - ✅ Google Sheets API
-     - ✅ Google Drive API
-
-⚠️ **注意**: API有効化後、システムに反映されるまで3-5分かかる場合があります。
-
-#### 2.3. サービスアカウントの作成
-
-1. **サービスアカウント作成**
-   - 左サイドメニューから「APIとサービス」→「認証情報」
-   - 「認証情報を作成」→「サービスアカウント」をクリック
-   - 以下を入力：
-     - **サービスアカウント名**: 
-     - **サービスアカウントID**: 自動生成される
-     - **説明**: `テレアポシステム用サービスアカウント`
-   - 「作成して続行」をクリック
-
-2. **ロールの付与**
-   - 「ロールを選択」ドロップダウンから以下を選択：
-     - `編集者` または `Project Editor`
-   - 「続行」をクリック
-   - 「完了」をクリック
-
-#### 2.4. サービスアカウントキーの作成・ダウンロード
-
-1. **キーファイルの作成**
-   - 作成されたサービスアカウントをクリック
-   - 「キー」タブをクリック
-   - 「キーを追加」→「新しいキーを作成」
-   - 「JSON」を選択
-   - 「作成」をクリック
-
-2. **ファイルの保存とプロジェクトへの配置**
-   - JSONファイルが自動でダウンロードされます
-   - ファイル名は `プロジェクト名-xxxxxxxx.json` のような形式
-
-#### 2.5. credentials.json ファイルの配置
-
-**方法1: PowerShellでファイルをコピー**
-```powershell
-# ダウンロードフォルダからプロジェクトルートにコピー
-copy "$env:USERPROFILE\Downloads\your-project-12345-abcdef.json" "credentials.json"
-```
-
-**方法2: 手動でファイルをコピー**
-1. ダウンロードフォルダからダウンロードしたJSONファイルを選択
-2. プロジェクトルート（`telecheck_mvp`フォルダ）にコピー
-3. ファイル名を `credentials.json` に変更
-
-### 3. OpenAI API設定
-
-#### 3.1. OpenAI APIキーの取得
-
-1. [OpenAI API](https://platform.openai.com/api-keys) にアクセス
-2. アカウントにログイン
-3. 「Create new secret key」をクリック
-4. APIキーをコピー（`sk-...` で始まる文字列）
-
-#### 3.2. .env ファイルの作成
-
-プロジェクトルートに `.env` ファイルを作成し、以下の内容を記述：
-
+#### ローカル環境
+`.env` ファイルを作成：
 ```env
-OPENAI_API_KEY=sk-your-actual-openai-api-key-here
+# AssemblyAI API（話者分離文字起こし用）
+ASSEMBLYAI_API_KEY=your-assemblyai-api-key
+
+# OpenAI API（品質チェック用）
+OPENAI_API_KEY=your-openai-api-key
 ```
 
-⚠️ **重要**: `.env` ファイルと `credentials.json` ファイルは機密情報を含むため、Gitにコミットしないでください。これらのファイルは `.gitignore` で除外設定済みです。
+#### Streamlit Cloud環境
+Secrets設定で以下のいずれかの形式で設定：
 
-### 4. Google Sheetsの準備
+**方式1: 階層化設定**
+```toml
+[assemblyai]
+api_key = "your-assemblyai-api-key"
 
-#### 4.1. スプレッドシートの作成
+[openai]
+api_key = "your-openai-api-key"
+```
 
-1. [Google Sheets](https://sheets.google.com/) にアクセス
-2. 「空白のスプレッドシート」をクリック
-3. スプレッドシート名を「テレアポチェックシート」に変更
-4. シート名を「Difyテスト」に変更
+**方式2: フラット設定**
+```toml
+ASSEMBLYAI_API_KEY = "your-assemblyai-api-key"
+OPENAI_API_KEY = "your-openai-api-key"
+```
 
-#### 4.2. サービスアカウントへのアクセス権限付与
+### 3. Google Sheets認証設定
+詳細は [CREDENTIALS_SETUP.md](CREDENTIALS_SETUP.md) を参照
 
-1. スプレッドシートの「共有」ボタンをクリック
-2. `credentials.json`内の`client_email`（例：`teleapo-service-account@your-project.iam.gserviceaccount.com`）を入力
-3. 権限を「編集者」に設定
-4. 「送信」をクリック
-
-詳細な設定手順は `CREDENTIALS_SETUP.md` を参照してください。
-
-### 5. Google Sheetsのヘッダー設定
-
-「Difyテスト」シートの1行目に以下のヘッダーを設定：
-
-| A列 | B列 | C列 | D列 | ... | AE列 |
-|-----|-----|-----|-----|-----|------|
-| ファイル名 | 文字起こし内容 | 処理日時 | テレアポ担当者名 | ... | 処理状況 |
-
-## 使用方法
-
-### 1. アプリケーションの起動
-
+### 4. アプリケーション起動
 ```bash
 streamlit run app.py
 ```
 
-### 2. ブラウザでアクセス
+## 🔧 設定・カスタマイズ
 
-通常は http://localhost:8501 でアクセス可能
-
-### 3. 文字起こし
-
-1. 「📝 文字起こし」タブを選択
-2. MP3ファイルをアップロード
-3. 「🎤 文字起こし開始」ボタンをクリック
-
-### 4. 品質チェック
-
-1. 「🔍 品質チェック」タブを選択
-2. 担当者を選択（複数選択可能）
-3. 処理設定を調整
-4. 「🔍 品質チェック実行」ボタンをクリック
-
-## 技術スタック
-
-- **フロントエンド**: Streamlit（Pythonベースのウェブアプリフレームワーク）
-- **音声処理API**: OpenAI Whisper API（AI音声認識モデル）
-- **言語処理API**: OpenAI GPT-4o-mini（品質チェック用）
-- **データストレージ**: Google Sheets API（スプレッドシート操作）
-- **認証**: Google OAuth2.0（GCPサービスアカウント）
-- **言語・環境**: Python 3.11+
-
-## ファイル構成
-
-```
-teleapo_mvp/
-├── app.py                      # メインアプリケーション
-├── requirements.txt            # 依存パッケージリスト
-├── .env                        # 環境変数設定ファイル
-├── credentials.json            # Google API認証用JSONファイル
-├── src/
-│   ├── api/
-│   │   ├── openai_client.py    # OpenAI API クライアント
-│   │   └── sheets_client.py    # Google Sheets API クライアント
-│   ├── ui/
-│   │   ├── main_app.py         # メインアプリケーションロジック
-│   │   ├── components.py       # UIコンポーネント
-│   │   └── styles.py           # スタイル定義
-│   ├── utils/
-│   │   ├── quality_check.py    # 品質チェックワークフロー（Dify互換）
-│   │   └── batch_processor.py  # バッチ処理管理
-│   └── prompts/
-│       └── system_prompts.py   # システムプロンプト（Dify互換）
-├── README.md                   # このファイル
-├── CREDENTIALS_SETUP.md        # 認証設定手順
-└── LOCAL_SETUP.md             # ローカル環境セットアップ手順
+### ファイルサイズ制限の変更
+`.streamlit/config.toml` で調整可能：
+```toml
+[server]
+maxUploadSize = 2048  # MB単位
 ```
 
-## Difyとの互換性
+### 話者判定ルールのカスタマイズ
+`src/utils/speaker_detection.py` で判定ロジックを調整：
+- キーワード重み
+- 発言量による判定
+- 最初話者ボーナス
 
-このシステムは、Difyで開発された品質チェックワークフローと完全に互換性があります：
+### アプリケーション設定
+`src/config.py` で各種設定を変更：
+- ファイルサイズ制限
+- 処理並行数
+- バッチサイズ
 
-- **同じプロンプト**: Difyで使用されているプロンプトを完全再現
-- **同じワークフロー**: 固有名詞置換 → 話者分離 → 品質チェック → JSON変換の流れ
-- **同じ出力形式**: 30列の詳細なチェック結果をGoogle Sheetsに出力
-- **同じ担当者リスト**: Difyで定義された9名の担当者名を使用
+## 📋 使用方法
 
-## トラブルシューティング
+### 話者分離文字起こし
+1. **音声ファイルアップロード** - mp3ファイルを選択
+2. **自動処理実行** - 話者分離と担当者判定を実行
+3. **結果確認** - 話者別発言数と判定結果を確認
+4. **Google Sheets保存** - フォーマット済み結果を自動保存
+
+### 品質チェック
+1. **担当者設定** - カンマ区切りで担当者名を入力
+2. **処理設定** - 最大処理行数を指定
+3. **バッチ実行** - Google Sheetsデータの品質チェック実行
+
+## 🔍 ファイルサイズ対応
+
+### サイズ制限
+- **最大ファイルサイズ**: 2GB（2,048MB）
+- **推奨ファイルサイズ**: 500MB以下
+- **複数ファイル**: 同時アップロード可能（推奨10ファイル以下）
+
+### パフォーマンス
+| ファイルサイズ | 処理時間目安 | 推奨事項 |
+|-------------|------------|----------|
+| ～100MB     | 1-3分      | 標準処理 |
+| 100-500MB   | 3-8分      | 推奨範囲 |
+| 500MB-1GB   | 8-15分     | 注意が必要 |
+| 1GB-2GB     | 15分以上    | 安定した環境必須 |
+
+## 🛠️ トラブルシューティング
 
 ### よくある問題
 
-1. **API接続エラー**: `.env` ファイルのAPIキーを確認
-2. **Google Sheetsエラー**: `credentials.json` の設定とアクセス権限を確認
-3. **Google Drive API エラー** ⚠️ **頻出**
-   ```
-   Google Drive API has not been used in project before or it is disabled
-   ```
-   **解決方法**:
-   - Google Cloud Consoleで Google Drive API を有効化
-   - エラーメッセージのリンクから直接有効化ページにアクセス可能
-   - 有効化後、3-5分待機してから再試行
-4. **アップロードエラー**: ファイルサイズ（25MB以下）と形式（MP3）を確認
-5. **品質チェックエラー**: 担当者選択と処理対象データの存在を確認
+#### 1. アップロードエラー
+- **原因**: ファイルサイズ制限超過
+- **解決**: `.streamlit/config.toml`の設定確認
 
-### ログの確認
+#### 2. メモリエラー
+- **原因**: 大容量ファイルまたは同時処理数過多
+- **解決**: ファイル分割またはバッチサイズ削減
 
-アプリケーション実行時のコンソール出力でエラー詳細を確認できます。
+#### 3. API接続エラー
+- **原因**: APIキー設定ミス
+- **解決**: 環境変数またはSecrets設定確認
 
-## ライセンス
+#### 4. 話者判定精度
+- **原因**: 音声品質またはキーワード設定
+- **解決**: `speaker_detection.py`の判定ルール調整
 
-© 2024 テレアポ品質チェックシステム - Version 1.2.0（Dify互換版）
+### ログ・デバッグ
+- 処理状況はStreamlit画面でリアルタイム表示
+- エラー詳細は画面上に表示
+- 設定状況は起動時に自動チェック
 
-## 更新履歴
+## 📈 バージョン履歴
 
-### v1.2.0（Dify互換版）
-- Difyと同じ詳細な品質チェック手法を実装
-- 26項目の詳細チェック項目を追加
-- 担当者リストをDify互換に更新
-- Google Sheets出力を30列の詳細形式に変更
-- ワークフローをDifyと完全互換に変更 
+### v2.0.0（リファクタリング版）
+- 🎯 AssemblyAI専用化（Whisper API削除）
+- 🔧 設定管理統一化
+- 📁 ファイル構造最適化
+- 🚀 パフォーマンス向上
+- 💾 最大2GBファイル対応
+
+### v1.2.0
+- 話者分離機能追加
+- 複数API対応
+
+### v1.0.0
+- 基本文字起こし機能
+
+## 🤝 開発・貢献
+
+### 開発環境
+```bash
+# 開発依存関係インストール
+pip install -r requirements-dev.txt
+
+# コード品質チェック
+flake8 src/
+black src/
+
+# テスト実行
+pytest tests/
+```
+
+### 貢献方法
+1. Forkしてfeatureブランチ作成
+2. 変更実装とテスト追加
+3. Pull Request作成
+
+## 📄 ライセンス
+
+MIT License - 詳細は [LICENSE](LICENSE) を参照
+
+## 🆘 サポート
+
+- **技術的な質問**: GitHubのIssuesを使用
+- **バグ報告**: Issues テンプレートに従って報告
+- **機能要望**: Discussionsで提案
+
+---
+
+**© 2024 テレアポ品質チェックシステム - Version 2.0.0**

@@ -1,5 +1,5 @@
 """
-品質チェックのコアワークフローを実装するモジュール（Dify互換版）
+品質チェックのコアワークフローを実装するモジュール（AssemblyAI話者分離対応版）
 """
 
 import streamlit as st
@@ -12,35 +12,30 @@ def node_replace(input_text, checker_str, client):
     prompt = SYSTEM_PROMPTS['replace'].format(checker=checker_str)
     return chat_with_retry(client, prompt, input_text)
 
-def node_speaker_separation(text_fixed, client):
-    """話者分離を行うノード（Dify互換）"""
-    prompt = SYSTEM_PROMPTS['speaker']
-    return chat_with_retry(client, prompt, text_fixed, expect_json=True)
-
-def node_company_name_check(text_separated, checker_str, client):
-    """社名・担当者名の確認を行うノード（Dify互換）"""
+def node_company_name_check(text_input, checker_str, client):
+    """社名・担当者名の確認を行うノード（AssemblyAI話者分離対応）"""
     prompt = SYSTEM_PROMPTS['company_name_check'].format(checker=checker_str)
-    return chat_with_retry(client, prompt, text_separated)
+    return chat_with_retry(client, prompt, text_input)
 
-def node_teleapo_response_check(text_separated, client):
-    """テレアポ担当者の対応チェックを行うノード（Dify互換）"""
+def node_teleapo_response_check(text_input, client):
+    """テレアポ担当者の対応チェックを行うノード（AssemblyAI話者分離対応）"""
     prompt = SYSTEM_PROMPTS['teleapo_response_check']
-    return chat_with_retry(client, prompt, text_separated)
+    return chat_with_retry(client, prompt, text_input)
 
-def node_longcall_check(text_separated, client):
-    """ロングコールチェックを行うノード（Dify互換）"""
+def node_longcall_check(text_input, client):
+    """ロングコールチェックを行うノード（AssemblyAI話者分離対応）"""
     prompt = SYSTEM_PROMPTS['longcall_check']
-    return chat_with_retry(client, prompt, text_separated)
+    return chat_with_retry(client, prompt, text_input)
 
-def node_customer_reaction_check(text_separated, client):
-    """お客様の反応チェックを行うノード（Dify互換）"""
+def node_customer_reaction_check(text_input, client):
+    """お客様の反応チェックを行うノード（AssemblyAI話者分離対応）"""
     prompt = SYSTEM_PROMPTS['customer_reaction_check']
-    return chat_with_retry(client, prompt, text_separated)
+    return chat_with_retry(client, prompt, text_input)
 
-def node_manner_check(text_separated, client):
-    """心構え・マナーチェックを行うノード（Dify互換）"""
+def node_manner_check(text_input, client):
+    """心構え・マナーチェックを行うノード（AssemblyAI話者分離対応）"""
     prompt = SYSTEM_PROMPTS['manner_check']
-    return chat_with_retry(client, prompt, text_separated)
+    return chat_with_retry(client, prompt, text_input)
 
 def node_concat(company_name_check, teleapo_response_check, longcall_check, customer_reaction_check, manner_check):
     """各チェック結果を連結するノード（Dify互換）"""
@@ -59,7 +54,7 @@ def node_to_json(concatenated, client):
     return chat_with_retry(client, full_prompt, "", expect_json=True)
 
 def run_workflow(raw_transcript, checker_str, client):
-    """品質チェックのワークフローを実行（Dify互換版）"""
+    """品質チェックのワークフローを実行（AssemblyAI話者分離対応版 - 8ステップ）"""
     try:
         workflow_progress = st.progress(0)
         status_text = st.empty()
@@ -70,63 +65,57 @@ def run_workflow(raw_transcript, checker_str, client):
             return None
         
         # 1. 固有名詞の置換
-        status_text.markdown("**ステップ 1/9**: 固有名詞の置換")
+        status_text.markdown("**ステップ 1/8**: 固有名詞の置換")
         text_fixed = node_replace(raw_transcript, checker_str, client)
         if not text_fixed or not text_fixed.strip():
             st.warning("ステップ1: 固有名詞の置換でエラーが発生しました")
             return None
-        workflow_progress.progress(1/9)
+        workflow_progress.progress(1/8)
 
-        # 2. 話者分離
-        status_text.markdown("**ステップ 2/9**: 話者分離")
-        text_separated = node_speaker_separation(text_fixed, client)
-        if not text_separated or not text_separated.strip():
-            st.warning("ステップ2: 話者分離でエラーが発生しました")
-            return None
-        workflow_progress.progress(2/9)
+        # 注意: AssemblyAIで既に話者分離済みのため、LLMによる話者分離ステップは削除
 
-        # 3. 社名・担当者名チェック
-        status_text.markdown("**ステップ 3/9**: 社名・担当者名チェック")
-        company_name_check = node_company_name_check(text_separated, checker_str, client)
+        # 2. 社名・担当者名チェック（話者分離済みテキストを使用）
+        status_text.markdown("**ステップ 2/8**: 社名・担当者名チェック")
+        company_name_check = node_company_name_check(text_fixed, checker_str, client)
         if not company_name_check:
             company_name_check = "チェック失敗"
-        workflow_progress.progress(3/9)
+        workflow_progress.progress(2/8)
         
-        # 4. テレアポ担当者対応チェック
-        status_text.markdown("**ステップ 4/9**: テレアポ担当者対応チェック")
-        teleapo_response_check = node_teleapo_response_check(text_separated, client)
+        # 3. テレアポ担当者対応チェック
+        status_text.markdown("**ステップ 3/8**: テレアポ担当者対応チェック")
+        teleapo_response_check = node_teleapo_response_check(text_fixed, client)
         if not teleapo_response_check:
             teleapo_response_check = "チェック失敗"
-        workflow_progress.progress(4/9)
+        workflow_progress.progress(3/8)
             
-        # 5. ロングコールチェック
-        status_text.markdown("**ステップ 5/9**: ロングコールチェック")
-        longcall_check = node_longcall_check(text_separated, client)
+        # 4. ロングコールチェック
+        status_text.markdown("**ステップ 4/8**: ロングコールチェック")
+        longcall_check = node_longcall_check(text_fixed, client)
         if not longcall_check:
             longcall_check = "チェック失敗"
-        workflow_progress.progress(5/9)
+        workflow_progress.progress(4/8)
             
-        # 6. お客様反応チェック
-        status_text.markdown("**ステップ 6/9**: お客様反応チェック")
-        customer_reaction_check = node_customer_reaction_check(text_separated, client)
+        # 5. お客様反応チェック
+        status_text.markdown("**ステップ 5/8**: お客様反応チェック")
+        customer_reaction_check = node_customer_reaction_check(text_fixed, client)
         if not customer_reaction_check:
             customer_reaction_check = "チェック失敗"
-        workflow_progress.progress(6/9)
+        workflow_progress.progress(5/8)
             
-        # 7. 心構え・マナーチェック
-        status_text.markdown("**ステップ 7/9**: 心構え・マナーチェック")
-        manner_check = node_manner_check(text_separated, client)
+        # 6. 心構え・マナーチェック
+        status_text.markdown("**ステップ 6/8**: 心構え・マナーチェック")
+        manner_check = node_manner_check(text_fixed, client)
         if not manner_check:
             manner_check = "チェック失敗"
-        workflow_progress.progress(7/9)
+        workflow_progress.progress(6/8)
 
-        # 8. 結果の連結
-        status_text.markdown("**ステップ 8/9**: 結果の連結")
+        # 7. 結果の連結
+        status_text.markdown("**ステップ 7/8**: 結果の連結")
         concatenated = node_concat(company_name_check, teleapo_response_check, longcall_check, customer_reaction_check, manner_check)
-        workflow_progress.progress(8/9)
+        workflow_progress.progress(7/8)
 
-        # 9. JSONに変換
-        status_text.markdown("**ステップ 9/9**: JSON形式に変換")
+        # 8. JSONに変換
+        status_text.markdown("**ステップ 8/8**: JSON形式に変換")
         result_json = node_to_json(concatenated, client)
         
         # JSON変換結果の検証

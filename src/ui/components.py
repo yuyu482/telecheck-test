@@ -1,9 +1,10 @@
 """
-Streamlit UIコンポーネント - 簡潔バージョン
+Streamlit UIコンポーネント
 """
 
 import streamlit as st
 from src.ui.styles import ALL_STYLES
+from src.config import config
 
 
 def setup_page():
@@ -34,14 +35,59 @@ def render_upload_section():
     st.markdown("### 📁 音声ファイルアップロード")
     
     uploaded_files = st.file_uploader(
-        "mp3ファイルを選択してください（最大25MB）",
+        f"mp3ファイルを選択してください（最大{config.max_file_size_mb}MB）",
         type=['mp3'],
-        help="テレアポの録音データをアップロードしてください",
+        help="テレアポの録音データをアップロードしてください。大きなファイルの場合、アップロードに時間がかかることがあります。",
         accept_multiple_files=True
     )
     
+    # ファイルサイズ制限についての詳細情報を表示
+    st.markdown(f"""
+    <div class="info-box">
+    📋 <strong>アップロード制限について</strong><br>
+    • 1ファイルあたり最大{config.max_file_size_mb}MB（{config.max_file_size_mb/1024:.1f}GB）まで対応<br>
+    • 複数ファイルの同時アップロード可能（推奨: {config.max_concurrent_files}ファイル以下）<br>
+    • 推奨サイズ: {config.recommended_file_size_mb}MB以下（安定した処理のため）<br>
+    • {config.recommended_file_size_mb}MB以上のファイルでは処理に時間がかかる場合があります
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # アップロードされたファイルの情報表示
+    if uploaded_files:
+        _display_uploaded_files_info(uploaded_files)
+    
     st.markdown('</div>', unsafe_allow_html=True)
     return uploaded_files
+
+
+def _display_uploaded_files_info(uploaded_files):
+    """アップロードされたファイルの情報を表示"""
+    total_size_mb = sum(file.size for file in uploaded_files) / (1024 * 1024)
+    
+    st.markdown("#### 📊 アップロードファイル情報")
+    
+    # 全体サマリー
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("ファイル数", f"{len(uploaded_files)}件")
+    with col2:
+        st.metric("合計サイズ", f"{total_size_mb:.1f}MB")
+    with col3:
+        status = "⚠️ 大容量" if total_size_mb > config.recommended_file_size_mb else "✅ 正常"
+        st.metric("ステータス", status)
+    
+    # ファイル別詳細（多すぎる場合は省略）
+    if len(uploaded_files) <= 5:
+        for i, file in enumerate(uploaded_files):
+            file_info = config.get_file_size_info(file.size)
+            icon = "⚠️" if file_info["is_large"] else "📁"
+            st.write(f"{icon} {file.name}: {file_info['size_mb']:.1f}MB")
+    else:
+        st.write(f"📁 {len(uploaded_files)}ファイルがアップロード済み（詳細は省略）")
+    
+    # 警告表示
+    if total_size_mb > config.recommended_file_size_mb:
+        st.warning(f"⚠️ 合計ファイルサイズが{config.recommended_file_size_mb}MBを超えています。処理に時間がかかる可能性があります。")
 
 
 def render_quality_check_section():
@@ -123,7 +169,7 @@ def render_footer():
     """フッターを表示"""
     st.markdown("""
     <div class="footer">
-      <p>© 2024 テレアポ品質チェックシステム - Version 1.2.0</p>
+      <p>© 2024 テレアポ品質チェックシステム - Version 2.0.0</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -159,6 +205,6 @@ def show_info_message(message):
     """情報メッセージを表示"""
     st.markdown(f"""
     <div class="info-box">
-      ℹ️ {message}
+    ℹ️ {message}
     </div>
     """, unsafe_allow_html=True) 

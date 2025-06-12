@@ -1,0 +1,46 @@
+# 環境変数ファイル
+.env
+
+# Google Cloud認証情報
+credentials.json
+
+# Python関連
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 仮想環境
+venv/
+ENV/
+
+# IDEとエディタ関連
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS関連ファイル
+.DS_Store
+Thumbs.db 
+
+# ドキュメント関係
+docs/
+
+.streamlit/secrets.toml

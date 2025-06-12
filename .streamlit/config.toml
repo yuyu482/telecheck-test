@@ -1,0 +1,13 @@
+[server]
+# ファイルアップロードのサイズ制限を2GBに設定
+# 注意：4GB以上ではStreamlitにバグが報告されているため、安全性を考慮して2GBに設定
+maxUploadSize = 2048
+
+# サーバーのタイムアウト設定も調整（大きなファイル処理のため）
+maxMessageSize = 2048
+enableXsrfProtection = false
+
+[browser]
+# ブラウザのタイムアウトも調整
+serverAddress = "0.0.0.0"
+gatherUsageStats = false 

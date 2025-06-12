@@ -1,5 +1,6 @@
 """
-メインアプリケーションロジック - 話者分離機能統一版
+メインアプリケーションロジック - リファクタリング版
+新しいモジュール構造を使用
 """
 
 import streamlit as st
@@ -24,6 +25,10 @@ from src.api.sheets_client import init_google_sheets, write_to_sheets
 from src.utils.batch_processor import run_quality_check_batch
 from src.utils.speaker_detection import detect_teleapo_speaker
 from src.config import config
+
+# 新しいモジュール構造を使用
+from src.quality_check import fix_transcription
+from src.common.error_handler import ErrorHandler, safe_execute, ValidationError, APIError
 
 
 def main():
@@ -86,12 +91,12 @@ def _handle_transcription_tab(clients):
     
     # 処理ボタン
     if uploaded_files:
-        process_button = st.button("🎤 話者分離文字起こし開始", type="primary", use_container_width=True)
+        process_button = st.button("🎤 話者分離文字起こし開始", type="primary", use_container_width=True, key="transcription_start_button")
         
         if process_button:
             _process_transcription_files(uploaded_files, clients)
     else:
-        st.button("🎤 話者分離文字起こし開始", type="primary", use_container_width=True, disabled=True)
+        st.button("🎤 話者分離文字起こし開始", type="primary", use_container_width=True, disabled=True, key="transcription_start_button_disabled")
         show_info_message("音声ファイルを選択してください")
 
 
@@ -181,6 +186,56 @@ def _display_transcription_result(uploaded_file, file_info, transcript_result, t
             st.write("📊 話者分離情報は利用できません")
     except Exception as display_error:
         st.write(f"表示エラー: {str(display_error)}")
+    
+    # Google Sheets保存セクション
+    with st.expander("💾 Google Sheetsに保存", expanded=True):
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            checker_str = st.text_input(
+                "担当者名一覧（カンマ区切り）",
+                value="田中,佐藤,鈴木,高橋,渡辺",
+                help="固有名詞置換で使用する担当者名を入力してください",
+                key=f"checker_input_{uploaded_file.name}_{hash(uploaded_file.name)}"
+            )
+        
+        with col2:
+            if st.button("💾 保存実行", type="primary", key=f"save_button_{uploaded_file.name}_{hash(uploaded_file.name)}"):
+                # OpenAIクライアントを取得（固有名詞置換に使用）
+                clients = st.session_state.get('clients', {})
+                openai_client = clients.get('openai')
+                
+                if not openai_client:
+                    st.error("❌ OpenAI APIクライアントが利用できません。")
+                    return
+                
+                try:
+                    # 固有名詞置換を含むフォーマット処理
+                    formatted_transcript = format_transcript_with_speakers(
+                        transcript_result, 
+                        teleapo_speaker, 
+                        checker_str,
+                        openai_client
+                    )
+                    
+                    # Google Sheets保存
+                    sheets_client = clients.get('sheets')
+                    if sheets_client:
+                        success = write_to_sheets(
+                            sheets_client, 
+                            f"{uploaded_file.name}の文字起こし結果", 
+                            formatted_transcript
+                        )
+                        
+                        if success:
+                            st.success("✅ Google Sheetsに保存完了！")
+                        else:
+                            st.error("❌ Google Sheetsへの保存に失敗しました")
+                    else:
+                        st.error("❌ Google Sheetsクライアントが利用できません")
+                        
+                except Exception as e:
+                    st.error(f"❌ 保存処理でエラーが発生しました: {str(e)}")
 
 
 def _display_processing_summary(processed_files, error_files):
@@ -205,13 +260,14 @@ def _handle_quality_check_tab(clients):
             "最大処理行数", 
             min_value=1, 
             max_value=config.max_processing_rows, 
-            value=50
+            value=50,
+            key="quality_check_max_rows"
         )
     with col2:
         st.metric("選択された担当者", len(selected_checkers))
     
     # 実行ボタン
-    run_check_button = st.button("🔍 品質チェック実行", type="primary", use_container_width=True)
+    run_check_button = st.button("🔍 品質チェック実行", type="primary", use_container_width=True, key="quality_check_run_button")
     
     # 品質チェック実行
     if run_check_button:

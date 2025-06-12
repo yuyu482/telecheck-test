@@ -110,7 +110,8 @@ def render_quality_check_section():
     checker_input = st.text_input(
         "品質チェックを行う担当者名をカンマ区切りで入力してください",
         value="",
-        help="例：田中, 佐藤, 鈴木（カンマ区切りで複数の担当者を入力できます）"
+        help="例：田中, 佐藤, 鈴木（カンマ区切りで複数の担当者を入力できます）",
+        key="quality_check_checker_input"
     )
     
     # カンマ区切りの入力を処理
